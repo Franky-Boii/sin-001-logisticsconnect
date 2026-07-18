@@ -31,6 +31,50 @@ for `package-status-topic`: Package status updates move from latency-driven RPC 
 **Status:** scaffold only — build files, Javalin bootstrap, and TODOs are in place; no
 business logic has been implemented yet.
 
+## Your task
+
+Implement the four stages below, in order — each one builds on the last, and the
+later stages assume the earlier ones work. Stage 1-3 are required; stage 4 is a
+stretch goal if you have time left.
+
+| Stage | Required? | What "done" looks like | Rough effort |
+|---|---|---|---|
+| 1. Clean `hubs-global.csv` | Required | IngestionServiceApp exposes the cleaned records via REST (see [Integration contracts](#integration-contracts)); every issue category in [ingestion-service/README.md](ingestion-service/README.md#known-data-issues) is handled | ~1-1.5h |
+| 2. Wire up the REST services | Required | hub-service, delay-stage-service, and transit-service each expose real domain endpoints (not just `/health`) and call each other synchronously per the contracts below; `transit-service` can return an ETA for a hub | ~1.5-2h |
+| 3. Decouple with the MQ topic | Required | `delay-stage-service` publishes to `package-status-topic` on stage change; `transit-service` subscribes instead of calling `delay-stage-service` directly; broker runs via `common/docker-compose.yml` | ~1h |
+| 4. AlertBot | Stretch | `alertbot` subscribes to `package-status-topic` and simulates posting an alert when a hub's delay stage crosses a threshold you choose | ~30-45m |
+
+You don't need to match any exact field names, endpoint paths, or message shapes —
+the ones below are illustrative. Favor a working, readable implementation over a
+gold-plated one; partial completion of stage 3 or 4 is fine if 1-2 are solid.
+
+## Integration contracts
+
+Two kinds of integration point exist in this repo: synchronous REST calls (stage 2)
+and the asynchronous MQ topic (stage 3). Field/endpoint names below are illustrative
+— reasonable variations are fine as long as the shape (who calls whom, with what
+kind of payload) is preserved.
+
+### REST (stage 2)
+
+| Caller | Callee | Example | Purpose |
+|---|---|---|---|
+| hub-service | ingestion-service | `GET :7050/hubs` → JSON array of cleaned hub records | hub-service loads its place-name data from the cleaned CSV output instead of re-parsing it itself |
+| transit-service | hub-service | `GET :7051/hubs/{hubId}` → hub/sorting-center details | transit-service needs hub location data to calculate an ETA |
+| transit-service | delay-stage-service | `GET :7052/delay-stage/{hubId}` → `{ "hubId": "H-501", "stage": 3 }` | transit-service needs the current delay stage to calculate an ETA — **this call is replaced by the MQ subscription in stage 3** |
+| (client) | delay-stage-service | `POST :7052/delay-stage/{hubId}` with a body like `{ "stage": 3 }` | the stage/state-change endpoint referenced in [common/README.md](common/README.md) — this is also where the stage-3 MQ publish happens |
+
+### MQ (stage 3) — topic `package-status-topic`
+
+Already documented in detail in [common/README.md](common/README.md): broker URL and
+topic name come from the shared `co.wethinkcode.logisticsconnect.mq.MqConfig` class,
+duplicated into each participating service.
+
+- **Producer:** `delay-stage-service`, on its stage/state-change endpoint above.
+- **Consumers:** `transit-service` (replacing its direct REST call to
+  delay-stage-service) and, for the stretch goal, `alertbot`.
+- **Example message shape:** `{ "hubId": "H-501", "stage": 5, "timestamp": "2026-07-18T10:15:00Z" }`
+
 ## Project structure
 
 ```

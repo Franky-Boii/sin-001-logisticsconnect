@@ -9,12 +9,21 @@ Independent Maven module, no parent pom.
 
 Mechanism: Outbound webhook, simulated social post
 
+MQ (stretch goal): this service subscribes to the ActiveMQ topic
+`package-status-topic` — see [`../common/`](../common). Broker URL and topic name
+come from the common `co.wethinkcode.logisticsconnect.mq.MqConfig` class alongside
+it in this module. Use the stage in each message to decide when to raise an alert
+(e.g. above a threshold you choose).
+
 ## Project structure
 
 ```
 alertbot/
 ├── pom.xml
-└── src/main/java/co/wethinkcode/logisticsconnect/AlertBotApp.java
+└── src/main/java/co/wethinkcode/logisticsconnect/
+    ├── AlertBotApp.java
+    └── mq/
+        └── MqConfig.java
 ```
 
 ## Build

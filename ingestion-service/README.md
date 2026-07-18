@@ -29,6 +29,34 @@ out for (and handle) at least:
 - **Naming/spelling variants** for the same thing (e.g. regional spelling
   differences, synonyms)
 
+## Worked example
+
+Two raw rows from `hubs-global.csv`:
+
+```
+hub_id, Province ,sorting_center,active
+H-502 ,gauteng,Pretoria North,0
+H-505,Western Cape ,Cape Town  Port,TRUE
+```
+
+A reasonable cleaned shape for those same two rows:
+
+| hub_id | province | sorting_center | active |
+|---|---|---|---|
+| H-502 | Gauteng | Pretoria North | false |
+| H-505 | Western Cape | Cape Town Port | true |
+
+That covers padding (`H-502 ` → `H-502`), casing (`gauteng` → `Gauteng`), a
+collapsed double space (`Cape Town  Port` → `Cape Town Port`), and boolean
+normalization (`0`/`TRUE` → `false`/`true`). Column names, exact casing
+convention, and boolean representation are up to you — just be consistent.
+
+This doesn't cover deduplication: rows like `H-500`, `H-504`, `H-510`, and `H-515`
+all describe "Johannesburg Central" in "Gauteng" under different hub IDs, with
+conflicting `active` values between them. How you resolve that (which one wins,
+how you detect they're duplicates in the first place) is part of the exercise —
+there's no single correct answer, but be ready to explain your reasoning.
+
 ## Project structure
 
 ```

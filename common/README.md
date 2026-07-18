@@ -10,7 +10,8 @@ Part of the [LogisticsConnect](../README.md) project. Holds the ActiveMQ broker 
 by the services below — not a service itself, so it has no port of its own.
 
 - Producer: `delay-stage-service` (`../delay-stage-service`)
-- Consumer(s): transit-service
+- Consumer(s): `transit-service` (required, stage 3); `alertbot` (stretch, stage 4 —
+  reacts to stage changes to decide when to raise an alert)
 
 Broker URL and topic name are shared via a common `co.wethinkcode.logisticsconnect.mq.MqConfig` class
 (`BROKER_URL`, `TOPIC`). It's identical in every participating service's own source
@@ -62,3 +63,6 @@ watching the topic in the web console.
 - Add `activemq-client` publish logic to `delay-stage-service` on its stage/state-change endpoint.
 - Add `activemq-client` subscriber logic to consumer service(s) above, replacing any
   direct synchronous calls to `delay-stage-service`.
+- `alertbot` (stretch goal) needs its own subscriber logic too — its `pom.xml`
+  already has the `activemq-client` dependency alongside the other participating
+  services.
