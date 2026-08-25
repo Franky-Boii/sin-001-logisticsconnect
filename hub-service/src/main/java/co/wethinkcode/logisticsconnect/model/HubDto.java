@@ -1,4 +1,4 @@
-package co.wethinkcode.logisticsconnect.model;
+ package co.wethinkcode.logisticsconnect.model;
 
 import java.util.List;
 
