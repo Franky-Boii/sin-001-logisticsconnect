@@ -1,5 +1,7 @@
 package co.wethinkcode.logisticsconnect.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -27,22 +29,27 @@ public final class HubRecord {
         this.notes = List.copyOf(notes);
     }
 
+    @JsonProperty("hubId")
     public String hubId() {
         return hubId;
     }
 
+    @JsonProperty("province")
     public String province() {
         return province;
     }
 
+    @JsonProperty("sortingCenter")
     public String sortingCenter() {
         return sortingCenter;
     }
 
+    @JsonProperty("active")
     public Boolean active() {
         return active;
     }
 
+    @JsonProperty("notes")
     public List<String> notes() {
         return notes;
     }
