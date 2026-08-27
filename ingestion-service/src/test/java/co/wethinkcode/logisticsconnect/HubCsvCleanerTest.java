@@ -27,7 +27,7 @@ class HubCsvCleanerTest {
         @Test
         @DisplayName("lowercase hub id is normalized to uppercase")
         void normalizesHubIdCasing() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"h-501", "Western Cape", "Cape Town Port", "yes"}
             ));
             assertEquals("H-501", result.get(0).hubId());
@@ -36,7 +36,7 @@ class HubCsvCleanerTest {
         @Test
         @DisplayName("leading/trailing padding on province is trimmed")
         void trimsProvincePadding() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-500", " Gauteng ", "Johannesburg Central", "Y"}
             ));
             assertEquals("Gauteng", result.get(0).province());
@@ -45,7 +45,7 @@ class HubCsvCleanerTest {
         @Test
         @DisplayName("internal double spaces in sorting center are collapsed")
         void collapsesDoubleSpaces() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-505", "Western Cape", "Cape Town  Port", "TRUE"}
             ));
             assertEquals("Cape Town Port", result.get(0).sortingCenter());
@@ -54,7 +54,7 @@ class HubCsvCleanerTest {
         @Test
         @DisplayName("lowercase sorting center is normalized to title case")
         void normalizesSortingCenterCasing() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-510", "Gauteng", "johannesburg central", "FALSE"}
             ));
             assertEquals("Johannesburg Central", result.get(0).sortingCenter());
@@ -68,7 +68,7 @@ class HubCsvCleanerTest {
         @ParameterizedTest(name = "\"{0}\" -> true")
         @CsvSource({"Y", "yes", "YES", "true", "TRUE", "1"})
         void normalizesTruthyVariants(String rawActive) {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-900", "Gauteng", "Test Hub", rawActive}
             ));
             assertEquals(Boolean.TRUE, result.get(0).active());
@@ -77,7 +77,7 @@ class HubCsvCleanerTest {
         @ParameterizedTest(name = "\"{0}\" -> false")
         @CsvSource({"N", "no", "FALSE", "false", "0"})
         void normalizesFalsyVariants(String rawActive) {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-901", "Gauteng", "Test Hub", rawActive}
             ));
             assertEquals(Boolean.FALSE, result.get(0).active());
@@ -90,7 +90,7 @@ class HubCsvCleanerTest {
 
         @Test
         void unknownActiveBecomesNull() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-511", "Limpopo", "Polokwane Hub", "unknown"}
             ));
             assertNull(result.get(0).active());
@@ -98,7 +98,7 @@ class HubCsvCleanerTest {
 
         @Test
         void naActiveBecomesNullAndFlagged() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-517", "Northern Cape", "Kimberley Hub", "N/A"}
             ));
             HubRecord record = result.get(0);
@@ -108,7 +108,7 @@ class HubCsvCleanerTest {
 
         @Test
         void blankProvinceIsFlaggedNotDropped() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-508", "", "Pretoria North", "yes"}
             ));
             assertEquals(1, result.size());
@@ -118,7 +118,7 @@ class HubCsvCleanerTest {
         @Test
         void garbageActiveValueDoesNotThrow() {
             assertDoesNotThrow(() -> {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+                List<HubRecord> result = cleaner.clean(List.of(
                         new String[]{"H-902", "Gauteng", "Test Hub", "banana"}
                 ));
                 assertNull(result.get(0).active());
@@ -132,7 +132,7 @@ class HubCsvCleanerTest {
 
         @Test
         void collapsesExactDuplicateWithDifferentIdCasing() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-500", "Gauteng", "Johannesburg Central", "Y"},
                     new String[]{"h-500", "Gauteng", "Johannesburg Central", "Y"}
             ));
@@ -141,7 +141,7 @@ class HubCsvCleanerTest {
 
         @Test
         void conflictingDuplicateIsResolvedAndFlagged() {
-            List<HubRecord> result = cleaner.clean(List.<String[]>of(
+            List<HubRecord> result = cleaner.clean(List.of(
                     new String[]{"H-500", "Gauteng", "Johannesburg Central", "Y"},
                     new String[]{"h-500", "Gauteng", "Johannesburg Central", "N"}
             ));

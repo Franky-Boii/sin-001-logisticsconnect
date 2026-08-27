@@ -7,7 +7,7 @@ import java.util.Objects;
  * A single cleaned hub record, ready to be served over REST by IngestionServiceApp
  * and consumed by hub-service.
  *
- * {@code active} is nullable: a raw value like "unknown" or "N/A" should end up as
+ * {@code active} is nullable: a raw value like "unknown" or "N/A" ends up as
  * {@code null} here (not defaulted to true/false), with the reason captured in
  * {@code notes} — see the ingestion-service README's "Known data issues" list.
  */

@@ -5,8 +5,8 @@ import co.wethinkcode.logisticsconnect.model.HubRecord;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Turns raw rows from hubs-global.csv into cleaned {@link HubRecord}s.
@@ -19,76 +19,116 @@ import java.util.Map;
  * <p>
  * Expected column order per row, matching hubs-global.csv:
  * {@code [hub_id, province, sorting_center, active]}
- *
+ * <p>
+ * Duplicate strategy: rows are keyed by normalized hub id, first-seen order is kept.
+ * An exact repeat (same id, same other fields) collapses silently into one record.
+ * A conflicting repeat (same id, different fields) keeps the first occurrence and
+ * appends a note explaining what was discarded, rather than silently picking a
+ * "winner" or emitting two records for the same real-world hub.
  */
 public class HubCsvCleaner {
 
+    private static final Set<String> TRUTHY = Set.of("y", "yes", "true", "1");
+    private static final Set<String> FALSY = Set.of("n", "no", "false", "0");
+
     public List<HubRecord> clean(List<String[]> rawRows) {
-        Map<String, HubRecord> recordsById = new LinkedHashMap<>();
+        LinkedHashMap<String, HubRecord> byId = new LinkedHashMap<>();
+
         for (String[] row : rawRows) {
-            if (row == null || row.length < 4) {
-                continue;
-            }
+            HubRecord parsed = parseRow(row);
+            HubRecord existing = byId.get(parsed.hubId());
 
-            String hubId = normalize(row[0]).toUpperCase(Locale.ROOT);
-            String province = titleCase(normalize(row[1]));
-            String sortingCenter = titleCase(normalize(row[2]));
-            Boolean active = parseActive(row[3]);
-            List<String> notes = new ArrayList<>();
-
-            if (hubId.isEmpty()) {
-                notes.add("missing hub id");
+            if (existing == null) {
+                byId.put(parsed.hubId(), parsed);
+            } else if (!sameCoreFields(existing, parsed)) {
+                byId.put(parsed.hubId(), withConflictNote(existing, parsed));
             }
-            if (province.isEmpty()) {
-                notes.add("missing province");
-            }
-            if (sortingCenter.isEmpty()) {
-                notes.add("missing sorting center");
-            }
-            if (active == null) {
-                notes.add("unrecognized active value: " + normalize(row[3]));
-            }
-
-            HubRecord record = new HubRecord(hubId, province, sortingCenter, active, notes);
-            HubRecord existing = recordsById.putIfAbsent(hubId, record);
-            if (existing != null && !existing.equals(record)) {
-                List<String> mergedNotes = new ArrayList<>(existing.notes());
-                mergedNotes.add("duplicate hub id resolved; first record retained");
-                recordsById.put(hubId, new HubRecord(
-                        existing.hubId(),
-                        existing.province(),
-                        existing.sortingCenter(),
-                        existing.active(),
-                        mergedNotes));
-            }
+            // else: exact duplicate of an already-seen hub — nothing to do
         }
-        return new ArrayList<>(recordsById.values());
+
+        return new ArrayList<>(byId.values());
     }
 
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    private HubRecord parseRow(String[] row) {
+        String rawId = field(row, 0);
+        String rawProvince = field(row, 1);
+        String rawSortingCenter = field(row, 2);
+        String rawActive = field(row, 3);
+
+        String hubId = normalizeId(rawId);
+        List<String> notes = new ArrayList<>();
+
+        String province = collapseWhitespace(rawProvince);
+        if (province.isBlank()) {
+            notes.add("missing province for hub " + hubId);
+        } else {
+            province = titleCase(province);
+        }
+
+        String sortingCenter = titleCase(collapseWhitespace(rawSortingCenter));
+        Boolean active = parseActive(rawActive, hubId, notes);
+
+        return new HubRecord(hubId, province, sortingCenter, active, notes);
     }
 
-    private String titleCase(String value) {
-        if (value.isEmpty()) {
-            return value;
+    private Boolean parseActive(String raw, String hubId, List<String> notes) {
+        String value = raw == null ? "" : raw.trim().toLowerCase();
+
+        if (TRUTHY.contains(value)) {
+            return Boolean.TRUE;
+        }
+        if (FALSY.contains(value)) {
+            return Boolean.FALSE;
+        }
+        notes.add("unrecognized active value '" + raw + "' for hub " + hubId + "; treated as unknown");
+        return null;
+    }
+
+    private boolean sameCoreFields(HubRecord a, HubRecord b) {
+        return Objects.equals(a.province(), b.province())
+                && Objects.equals(a.sortingCenter(), b.sortingCenter())
+                && Objects.equals(a.active(), b.active());
+    }
+
+    private HubRecord withConflictNote(HubRecord existing, HubRecord conflicting) {
+        List<String> mergedNotes = new ArrayList<>(existing.notes());
+        mergedNotes.add("conflicting duplicate row for hub " + existing.hubId()
+                + " discarded (province='" + conflicting.province()
+                + "', sortingCenter='" + conflicting.sortingCenter()
+                + "', active=" + conflicting.active() + "); kept first occurrence");
+        return new HubRecord(existing.hubId(), existing.province(), existing.sortingCenter(),
+                existing.active(), mergedNotes);
+    }
+
+    private String field(String[] row, int index) {
+        return (row != null && index < row.length && row[index] != null) ? row[index] : "";
+    }
+
+    private String normalizeId(String raw) {
+        return raw.trim().toUpperCase();
+    }
+
+    private String collapseWhitespace(String raw) {
+        return raw.trim().replaceAll("\\s+", " ");
+    }
+
+    private String titleCase(String s) {
+        if (s.isBlank()) {
+            return s;
         }
         StringBuilder result = new StringBuilder();
-        for (String word : value.toLowerCase(Locale.ROOT).split(" ")) {
-            if (!result.isEmpty()) {
-                result.append(' ');
+        for (String word : s.split(" ")) {
+            if (word.isEmpty()) {
+                continue;
             }
-            result.append(Character.toUpperCase(word.charAt(0)))
-                    .append(word.substring(1));
+            if (result.length() > 0) {
+                result.append(" ");
+            }
+            result.append(Character.toUpperCase(word.charAt(0)));
+            if (word.length() > 1) {
+                result.append(word.substring(1).toLowerCase());
+            }
         }
         return result.toString();
-    }
-
-    private Boolean parseActive(String value) {
-        return switch (normalize(value).toLowerCase(Locale.ROOT)) {
-            case "y", "yes", "1", "true" -> true;
-            case "n", "no", "0", "false" -> false;
-            default -> null;
-        };
     }
 }
