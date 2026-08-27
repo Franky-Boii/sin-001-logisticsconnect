@@ -3,12 +3,13 @@ package co.wethinkcode.logisticsconnect;
 import co.wethinkcode.logisticsconnect.model.HubDto;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.TreeSet;
 
 /**
- * In-memory query layer over the hub data fetched from ingestion-service.
+ * In-memory query layer over the hub data fetched from ingestion-service. Populated
+ * once at startup by {@link IngestionClient} and served from for every request —
+ * see the README's "cached, not re-fetched per request" note on why.
  */
 public class HubCache {
 
@@ -23,9 +24,9 @@ public class HubCache {
     }
 
     public Optional<HubDto> byId(String hubId) {
-        String normalized = hubId == null ? "" : hubId.trim().toUpperCase(Locale.ROOT);
+        String normalized = hubId == null ? "" : hubId.trim().toUpperCase();
         return hubs.stream()
-                .filter(hub -> hub.hubId() != null && hub.hubId().equalsIgnoreCase(normalized))
+                .filter(h -> h.hubId() != null && h.hubId().equalsIgnoreCase(normalized))
                 .findFirst();
     }
 
