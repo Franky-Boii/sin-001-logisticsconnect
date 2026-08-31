@@ -1,11 +1,13 @@
 package co.wethinkcode.logisticsconnect;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.javalin.Javalin;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import co.wethinkcode.logisticsconnect.mq.MqPublisher;
+import io.javalin.Javalin;
 
 public class DelayStageServiceApp {
 
@@ -15,6 +17,9 @@ public class DelayStageServiceApp {
     public static void main(String[] args) {
         Map<String, Integer> stages = new ConcurrentHashMap<>();
         ObjectMapper objectMapper = new ObjectMapper();
+        MqPublisher publisher = new MqPublisher();
+        Runtime.getRuntime().addShutdownHook(new Thread(publisher::close));
+
         Javalin app = Javalin.create().start(7052);
 
         app.get("/health", ctx -> ctx.result("OK"));
@@ -52,6 +57,18 @@ public class DelayStageServiceApp {
 
             int stage = stageNode.intValue();
             stages.put(hubId, stage);
+
+            // broadcast the change instead of making callers poll this
+            // endpoint. A broker hiccup here is logged, not fatal — the state
+            // change above already succeeded, and the point of decoupling is that
+            // a publish failure shouldn't take the synchronous REST contract down.
+            try {
+                publisher.publishStageChange(hubId, stage);
+            } catch (Exception mqError) {
+                System.err.println("MqPublisher: failed to publish stage change for "
+                        + hubId + ": " + mqError.getMessage());
+            }
+
             ctx.status(200).json(Map.of("hubId", hubId, "stage", stage));
         });
     }
