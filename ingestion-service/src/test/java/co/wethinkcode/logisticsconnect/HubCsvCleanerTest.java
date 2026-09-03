@@ -1,12 +1,6 @@
 package co.wethinkcode.logisticsconnect;
 
-import co.wethinkcode.logisticsconnect.model.HubRecord;
-import com.opencsv.CSVReader;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,7 +8,15 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import com.opencsv.CSVReader;
+
+import co.wethinkcode.logisticsconnect.model.HubRecord;
 
 class HubCsvCleanerTest {
 
@@ -58,6 +60,21 @@ class HubCsvCleanerTest {
                     new String[]{"H-510", "Gauteng", "johannesburg central", "FALSE"}
             ));
             assertEquals("Johannesburg Central", result.get(0).sortingCenter());
+        }
+
+        @Test
+        @DisplayName("KwaZulu-Natal variants are normalized to one canonical province name")
+        void normalizesKwaZuluNatalVariants() {
+            List<HubRecord> result = cleaner.clean(List.of(
+                    new String[]{"H-503", "KwaZulu-Natal", "Durban Harbour", "Y"},
+                    new String[]{"H-506", "Kwa-Zulu Natal", "Durban Harbour", "1"},
+                    new String[]{"H-516", "KwaZulu Natal", "Durban Harbour", "true"}
+            ));
+
+            assertEquals(3, result.size());
+            assertEquals("KwaZulu-Natal", result.get(0).province());
+            assertEquals("KwaZulu-Natal", result.get(1).province());
+            assertEquals("KwaZulu-Natal", result.get(2).province());
         }
     }
 
@@ -145,7 +162,10 @@ class HubCsvCleanerTest {
                     new String[]{"H-500", "Gauteng", "Johannesburg Central", "Y"},
                     new String[]{"h-500", "Gauteng", "Johannesburg Central", "N"}
             ));
-            long h500Count = result.stream().filter(r -> "H-500".equals(r.hubId())).count();
+            long h500Count = result.stream()
+                    .filter(r -> "H-500".equals(r.hubId()))
+                    .count();
+
             assertEquals(1, h500Count);
             assertFalse(result.get(0).notes().isEmpty());
         }
@@ -171,13 +191,22 @@ class HubCsvCleanerTest {
 
             assertFalse(result.isEmpty());
             assertTrue(result.size() <= rawRows.size());
-            assertTrue(result.stream().allMatch(r -> r.hubId() != null && !r.hubId().isBlank()));
+            assertTrue(result.stream()
+                    .allMatch(r -> r.hubId() != null && !r.hubId().isBlank()));
         }
 
         private List<String[]> readRawRows(String classpathResource) throws Exception {
             try (InputStream in = getClass().getResourceAsStream(classpathResource)) {
-                assertNotNull(in, "expected " + classpathResource + " on the test classpath");
-                Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8);
+                assertNotNull(
+                        in,
+                        "expected " + classpathResource + " on the test classpath"
+                );
+
+                Reader reader = new InputStreamReader(
+                        in,
+                        StandardCharsets.UTF_8
+                );
+
                 try (CSVReader csvReader = new CSVReader(reader)) {
                     List<String[]> all = csvReader.readAll();
                     return all.subList(1, all.size());
@@ -186,3 +215,4 @@ class HubCsvCleanerTest {
         }
     }
 }
+

@@ -1,19 +1,19 @@
 package co.wethinkcode.logisticsconnect;
 
-import co.wethinkcode.logisticsconnect.model.HubRecord;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import co.wethinkcode.logisticsconnect.model.HubRecord;
+
 /**
  * Turns raw rows from hubs-global.csv into cleaned {@link HubRecord}s.
  * <p>
  * Deliberately separated from any CSV-parsing or Javalin/HTTP concern: this class
  * takes already-split rows (one {@code String[]} per data row, header excluded) so
- * the cleaning *rules* can be unit tested without touching a file or a server.
+ * the cleaning rules can be unit tested without touching a file or a server.
  * {@link IngestionServiceApp} is responsible for wiring opencsv's reader output into
  * this class, and for exposing the result over REST.
  * <p>
@@ -43,7 +43,7 @@ public class HubCsvCleaner {
             } else if (!sameCoreFields(existing, parsed)) {
                 byId.put(parsed.hubId(), withConflictNote(existing, parsed));
             }
-            // else: exact duplicate of an already-seen hub — nothing to do
+            // Exact duplicate of an already-seen hub — nothing to do.
         }
 
         return new ArrayList<>(byId.values());
@@ -59,16 +59,45 @@ public class HubCsvCleaner {
         List<String> notes = new ArrayList<>();
 
         String province = collapseWhitespace(rawProvince);
+
         if (province.isBlank()) {
             notes.add("missing province for hub " + hubId);
         } else {
-            province = titleCase(province);
+            province = normalizeProvince(province);
         }
 
         String sortingCenter = titleCase(collapseWhitespace(rawSortingCenter));
         Boolean active = parseActive(rawActive, hubId, notes);
 
-        return new HubRecord(hubId, province, sortingCenter, active, notes);
+        return new HubRecord(
+                hubId,
+                province,
+                sortingCenter,
+                active,
+                notes
+        );
+    }
+
+    /**
+     * Normalizes province names into a consistent canonical representation.
+     *
+     * In the source CSV, KwaZulu-Natal appears in several forms:
+     * - KwaZulu-Natal
+     * - Kwa-Zulu Natal
+     * - KwaZulu Natal
+     *
+     * All are represented as "KwaZulu-Natal" in the cleaned data.
+     */
+    private String normalizeProvince(String raw) {
+        String normalized = raw.trim().replaceAll("\\s+", " ");
+
+        if (normalized.equalsIgnoreCase("KwaZulu-Natal")
+                || normalized.equalsIgnoreCase("Kwa-Zulu Natal")
+                || normalized.equalsIgnoreCase("KwaZulu Natal")) {
+            return "KwaZulu-Natal";
+        }
+
+        return titleCase(normalized);
     }
 
     private Boolean parseActive(String raw, String hubId, List<String> notes) {
@@ -77,10 +106,17 @@ public class HubCsvCleaner {
         if (TRUTHY.contains(value)) {
             return Boolean.TRUE;
         }
+
         if (FALSY.contains(value)) {
             return Boolean.FALSE;
         }
-        notes.add("unrecognized active value '" + raw + "' for hub " + hubId + "; treated as unknown");
+
+        notes.add(
+                "unrecognized active value '" + raw
+                        + "' for hub " + hubId
+                        + "; treated as unknown"
+        );
+
         return null;
     }
 
@@ -90,18 +126,39 @@ public class HubCsvCleaner {
                 && Objects.equals(a.active(), b.active());
     }
 
-    private HubRecord withConflictNote(HubRecord existing, HubRecord conflicting) {
+    private HubRecord withConflictNote(
+            HubRecord existing,
+            HubRecord conflicting
+    ) {
         List<String> mergedNotes = new ArrayList<>(existing.notes());
-        mergedNotes.add("conflicting duplicate row for hub " + existing.hubId()
-                + " discarded (province='" + conflicting.province()
-                + "', sortingCenter='" + conflicting.sortingCenter()
-                + "', active=" + conflicting.active() + "); kept first occurrence");
-        return new HubRecord(existing.hubId(), existing.province(), existing.sortingCenter(),
-                existing.active(), mergedNotes);
+
+        mergedNotes.add(
+                "conflicting duplicate row for hub "
+                        + existing.hubId()
+                        + " discarded (province='"
+                        + conflicting.province()
+                        + "', sortingCenter='"
+                        + conflicting.sortingCenter()
+                        + "', active="
+                        + conflicting.active()
+                        + "); kept first occurrence"
+        );
+
+        return new HubRecord(
+                existing.hubId(),
+                existing.province(),
+                existing.sortingCenter(),
+                existing.active(),
+                mergedNotes
+        );
     }
 
     private String field(String[] row, int index) {
-        return (row != null && index < row.length && row[index] != null) ? row[index] : "";
+        return (row != null
+                && index < row.length
+                && row[index] != null)
+                ? row[index]
+                : "";
     }
 
     private String normalizeId(String raw) {
@@ -116,19 +173,26 @@ public class HubCsvCleaner {
         if (s.isBlank()) {
             return s;
         }
+
         StringBuilder result = new StringBuilder();
+
         for (String word : s.split(" ")) {
             if (word.isEmpty()) {
                 continue;
             }
+
             if (result.length() > 0) {
                 result.append(" ");
             }
+
             result.append(Character.toUpperCase(word.charAt(0)));
+
             if (word.length() > 1) {
                 result.append(word.substring(1).toLowerCase());
             }
         }
+
         return result.toString();
     }
 }
+
